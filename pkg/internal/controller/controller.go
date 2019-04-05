@@ -92,6 +92,8 @@ type Controller struct {
 	// Kubernetes API.
 	Recorder record.EventRecorder
 
+	// sources is a list of sources that the controller is watching.
+	sources []source.Source
 	// TODO(community): Consider initializing a logger with the Controller Name as the tag
 }
 
@@ -118,8 +120,21 @@ func (c *Controller) Watch(src source.Source, evthdler handler.EventHandler, prc
 		}
 	}
 
+	for _, s := range c.sources {
+		if s.Equal(src) {
+			log.Info("Already watching on this source")
+			return nil
+		}
+	}
+
 	log.Info("Starting EventSource", "controller", c.Name, "source", src)
-	return src.Start(evthdler, c.Queue, prct...)
+	if err := src.Start(evthdler, c.Queue, prct...); err != nil {
+		return err
+	}
+
+	c.sources = append(c.sources, src)
+
+	return nil
 }
 
 // Start implements controller.Controller

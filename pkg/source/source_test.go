@@ -210,6 +210,18 @@ var _ = Describe("Source", func() {
 			close(done)
 		})
 
+		It("should return true from Equal for two different pod instances", func() {
+			instance1 := &source.Kind{Type: &corev1.Pod{}}
+			instance2 := &source.Kind{Type: &corev1.Pod{}}
+			Expect(instance1.Equal(instance2)).To(Equal(true))
+		})
+
+		It("should return false from Equal for pod and service instances", func() {
+			instance1 := &source.Kind{Type: &corev1.Pod{}}
+			instance2 := &source.Kind{Type: &corev1.Service{}}
+			Expect(instance1.Equal(instance2)).To(Equal(false))
+		})
+
 		Context("for a Kind not in the cache", func() {
 			It("should return an error when Start is called", func(done Done) {
 				ic.Error = fmt.Errorf("test error")
@@ -248,6 +260,22 @@ var _ = Describe("Source", func() {
 			Expect(instance.Start(nil, nil)).To(Equal(expected))
 
 			close(done)
+		})
+		It("should return false from Equal for the same instance of Func", func() {
+			f := source.Func(func(handler.EventHandler, workqueue.RateLimitingInterface, ...predicate.Predicate) error {
+				return nil
+			})
+			Expect(f.Equal(f)).To(Equal(false))
+		})
+
+		It("should return false from Equal for two different instances of Func", func() {
+			f1 := source.Func(func(handler.EventHandler, workqueue.RateLimitingInterface, ...predicate.Predicate) error {
+				return nil
+			})
+			f2 := source.Func(func(handler.EventHandler, workqueue.RateLimitingInterface, ...predicate.Predicate) error {
+				return nil
+			})
+			Expect(f1.Equal(f2)).To(Equal(false))
 		})
 	})
 
@@ -393,6 +421,17 @@ var _ = Describe("Source", func() {
 				err := instance.Start(handler.Funcs{}, q)
 				Expect(err).To(Equal(fmt.Errorf("must call InjectStop on Channel before calling Start")))
 				close(done)
+			})
+
+			It("should return true from Equal for the same Channel instance", func() {
+				instance := &source.Channel{Source: ch}
+				Expect(instance.Equal(instance)).To(Equal(true))
+			})
+
+			It("should return false from Equal for different Channel instances", func() {
+				instance1 := &source.Channel{Source: ch}
+				instance2 := &source.Channel{Source: ch}
+				Expect(instance1.Equal(instance2)).To(Equal(false))
 			})
 
 		})

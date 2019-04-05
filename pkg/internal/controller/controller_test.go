@@ -176,6 +176,21 @@ var _ = Describe("controller", func() {
 			Expect(ctrl.Watch(src, evthdl)).To(Equal(expected))
 		})
 
+		It("should register the watch exactly once", func() {
+			src := &source.Kind{Type: &corev1.Pod{}}
+			evthdl := &handler.EnqueueRequestForObject{}
+			expected := []source.Source{src}
+			ctrl.SetFields = func(i interface{}) error {
+				defer GinkgoRecover()
+				if i == evthdl {
+					ctrl.sources = append(ctrl.sources, src)
+				}
+				return nil
+			}
+			Expect(ctrl.Watch(src, evthdl)).NotTo(HaveOccurred())
+			Expect(ctrl.sources).To(Equal(expected))
+		})
+
 		PIt("should inject dependencies into the Reconciler", func() {
 			// TODO(community): Write this
 		})

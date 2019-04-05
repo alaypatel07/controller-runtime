@@ -18,6 +18,7 @@ package source
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -53,6 +54,9 @@ type Source interface {
 	// Start is internal and should be called only by the Controller to register an EventHandler with the Informer
 	// to enqueue reconcile.Requests.
 	Start(handler.EventHandler, workqueue.RateLimitingInterface, ...predicate.Predicate) error
+	// Equal is internal and should be called by the Controller to check if an Eventhandler has already been registered
+	// before calling Start
+	Equal(source Source) bool
 }
 
 // Kind is used to provide a source of events originating inside the cluster from Watches (e.g. Pod Create)
@@ -92,6 +96,15 @@ func (ks *Kind) Start(handler handler.EventHandler, queue workqueue.RateLimiting
 	}
 	i.AddEventHandler(internal.EventHandler{Queue: queue, EventHandler: handler, Predicates: prct})
 	return nil
+}
+
+// Equal is internal and should be called by the Controller to check if an Eventhandler has already been registered
+// before calling Start
+func (ks *Kind) Equal(source Source) bool {
+	if k, ok := source.(*Kind); ok {
+		return reflect.TypeOf(ks.Type) == reflect.TypeOf(k.Type)
+	}
+	return false
 }
 
 func (ks *Kind) String() string {
@@ -136,6 +149,15 @@ type Channel struct {
 
 	// destLock is to ensure the destination channels are safely added/removed
 	destLock sync.Mutex
+}
+
+// Equal is internal and should be called by the Controller to check if an Eventhandler has already been registered
+// before calling Start
+func (cs *Channel) Equal(source Source) bool {
+	if c, ok := source.(*Channel); ok {
+		return c == cs
+	}
+	return false
 }
 
 func (cs *Channel) String() string {
@@ -262,6 +284,15 @@ func (is *Informer) Start(handler handler.EventHandler, queue workqueue.RateLimi
 	return nil
 }
 
+// Equal is internal and should be called by the Controller to check if an Eventhandler has already been registered
+// before calling Start
+func (is *Informer) Equal(source Source) bool {
+	if i, ok := source.(*Informer); ok {
+		return i == is
+	}
+	return false
+}
+
 func (is *Informer) String() string {
 	return fmt.Sprintf("informer source: %p", is.Informer)
 }
@@ -273,6 +304,17 @@ type Func func(handler.EventHandler, workqueue.RateLimitingInterface, ...predica
 func (f Func) Start(evt handler.EventHandler, queue workqueue.RateLimitingInterface,
 	pr ...predicate.Predicate) error {
 	return f(evt, queue, pr...)
+}
+
+// Equal implements Source
+func (f Func) Equal(source Source) bool {
+	// Since functions cannot be compared check for identity
+	if f1, ok := source.(Func); ok {
+		if &f == &f1 {
+			return true
+		}
+	}
+	return false
 }
 
 func (f Func) String() string {
